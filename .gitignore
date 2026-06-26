@@ -1,0 +1,29 @@
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Files that might appear in the same directory
+.DocumentRevisions-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potential metadata
+.Spotlight-V100
+.fseventsd
+
+# DexCast compiled app
+DexCast.app/
+
+# Original project image ZIP
+DexCast_Project_Images.zip
+
+# Logs
+*.log
+logs/
+
+# Local configurations / Profiles
+profiles/*.env
+profiles/active-profile
