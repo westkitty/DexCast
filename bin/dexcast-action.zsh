@@ -170,10 +170,12 @@ echo 'Setting up Sunshine background service...';
   sunshine)
     log "Launching Sunshine stream server..."
     if ! pgrep -x sunshine >/dev/null; then
-      # Try starting service or run binary directly
-      "$BREW" services start lizardbyte/homebrew/sunshine >> "$LOG" 2>&1 || "$SUNSHINE" >> "$LOG" 2>&1 &
-      log "Sunshine service started"
-      osascript -e 'display dialog "Sunshine has been started in the background!" buttons {"OK"} default button "OK" with title "DexCast"'
+      # Disable brew launchd daemon to avoid screen capture blocks
+      "$BREW" services stop lizardbyte/homebrew/sunshine >/dev/null 2>&1 || true
+      # Start directly in user GUI session
+      "$SUNSHINE" >> "$LOG" 2>&1 &
+      log "Sunshine process started directly in user session"
+      osascript -e 'display dialog "Sunshine has been started directly in your user session!" buttons {"OK"} default button "OK" with title "DexCast"'
     else
       log "Sunshine is already running"
       osascript -e 'display dialog "Sunshine is already running in the background!" buttons {"OK"} default button "OK" with title "DexCast"'
