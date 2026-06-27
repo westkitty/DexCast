@@ -11,6 +11,7 @@ ADB="$(command -v adb 2>/dev/null || echo /opt/homebrew/bin/adb)"
 SCRCPY="$(command -v scrcpy 2>/dev/null || echo /opt/homebrew/bin/scrcpy)"
 BREW="$(command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)"
 SUNSHINE="$(command -v sunshine 2>/dev/null || echo /opt/homebrew/bin/sunshine)"
+SUNSHINE_APP="/Applications/Sunshine.app"
 SWITCH_AUDIO="$(command -v SwitchAudioSource 2>/dev/null || echo /opt/homebrew/bin/SwitchAudioSource)"
 
 mkdir -p "$PROFILES" "$(dirname "$LOG")"
@@ -237,8 +238,12 @@ echo 'Setting up Sunshine background service...';
         fi
       fi
       
-      # Start directly in user GUI session
-      "$SUNSHINE" >> "$LOG" 2>&1 &
+      # Launch via .app bundle so macOS correctly attributes Screen Recording permission
+      if [ -d "$SUNSHINE_APP" ]; then
+        open -a "$SUNSHINE_APP" >> "$LOG" 2>&1
+      else
+        "$SUNSHINE" >> "$LOG" 2>&1 &
+      fi
       log "Sunshine process started directly in user session"
       osascript -e 'display dialog "Sunshine has been started directly in your user session!" buttons {"OK"} default button "OK" with title "DexCast"'
     else
@@ -408,7 +413,11 @@ CFG
           fi
         fi
         
-        "$SUNSHINE" >> "$LOG" 2>&1 &
+        if [ -d "$SUNSHINE_APP" ]; then
+          open -a "$SUNSHINE_APP" >> "$LOG" 2>&1
+        else
+          "$SUNSHINE" >> "$LOG" 2>&1 &
+        fi
         log "Sunshine restarted with display '$DISPLAY_MODE'"
       fi
     fi
