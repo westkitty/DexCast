@@ -682,7 +682,8 @@ struct LogView: View {
     }
     
     func loadLogs() {
-        let logPath = "/Users/andrew/Library/Logs/dexcast.log"
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let logPath = home.appendingPathComponent("Library/Logs/dexcast.log").path
         if let content = try? String(contentsOfFile: logPath, encoding: .utf8) {
             let lines = content.components(separatedBy: .newlines)
             let lastLines = lines.suffix(150)
@@ -691,7 +692,8 @@ struct LogView: View {
     }
     
     func clearLogs() {
-        let logPath = "/Users/andrew/Library/Logs/dexcast.log"
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let logPath = home.appendingPathComponent("Library/Logs/dexcast.log").path
         try? "".write(toFile: logPath, atomically: true, encoding: .utf8)
         loadLogs()
     }

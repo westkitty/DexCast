@@ -27,7 +27,7 @@ class AppState: ObservableObject {
     @Published var isChecking = false
     
     private var savedBrightness: Float? = nil
-    private let actionPath = "/Users/andrew/DexCast/bin/dexcast-action.zsh"
+    private let actionPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("DexCast/bin/dexcast-action.zsh").path
     
     init() {
         refresh()
