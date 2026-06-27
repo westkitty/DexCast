@@ -698,6 +698,50 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.02)))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.05), lineWidth: 1))
+            
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "square.3.stack.3d")
+                        .foregroundColor(.orange)
+                    Text("WIRELESS 3-SCREEN WORKSPACE GUIDE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.secondary)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("How to turn your TV and Galaxy Tab into independent extended monitors:")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("1. Extended Tablet Screen:")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.orange)
+                        .padding(.top, 2)
+                    Text("On your Galaxy Tab S9 Ultra, swipe down quick settings and turn on 'Second Screen'. On your Mac, open Control Center → Screen Mirroring → select your Tablet, and ensure it is set to 'Extend Desktop'.")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                    
+                    Text("2. Extended TV Screen:")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.orange)
+                        .padding(.top, 2)
+                    Text("In the 'STREAM ROUTING PREFERENCE' picker above, select 'Virtual TV Screen'. This will automatically create an independent virtual screen on your Mac.")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                    
+                    Text("3. Launch casting:")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.orange)
+                        .padding(.top, 2)
+                    Text("Click 'Sit With Dexter' (or press Cmd+Option+D). The TV will now display the virtual screen. Arrange display alignments in macOS System Settings → Displays.")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.05), lineWidth: 1))
         }
         .padding(16)
     }
