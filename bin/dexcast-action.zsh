@@ -34,12 +34,29 @@ load_profile(){
 terminal_run(){
   local title="$1"
   local cmd="$2"
-  osascript <<OSA
+  local temp_script="/tmp/dexcast_cmd.zsh"
+  
+  cat > "$temp_script" <<EOF
+#!/bin/zsh
+echo "=== $title ==="
+echo
+$cmd
+echo
+echo "=== Done. Press Enter or close this window to exit. ==="
+read -r
+EOF
+  chmod +x "$temp_script"
+  
+  osascript <<OSA 2>/dev/null
 tell application "Terminal"
   activate
-  do script "echo '=== $title ==='; echo; $cmd; echo; echo '=== Done. You may close this window. ==='"
+  do script "$temp_script"
 end tell
 OSA
+  if [ $? -ne 0 ]; then
+    log "AppleScript Terminal control failed (likely privacy block). Falling back to open -a Terminal."
+    open -a Terminal "$temp_script"
+  fi
 }
 
 case "${1:-}" in
@@ -137,15 +154,17 @@ echo 'Setting up Sunshine background service...';
       osascript -e 'display dialog "Please configure your profile first." buttons {"OK"} with title "DexCast"'
       exit 1
     fi
-    log "Authorizing Fire Stick at $FIRE_IP"
-    terminal_run "Fire Stick ADB Authorization" "
-echo 'Look at the TV. If prompted, select \"Always allow from this computer\" and then click Allow.';
-echo;
-'$ADB' kill-server;
-'$ADB' start-server;
-'$ADB' connect '$FIRE_IP:5555';
-'$ADB' devices;
-"
+    log "Authorizing Fire Stick at $FIRE_IP (Direct Connection)..."
+    
+    # Run ADB connection directly in background
+    "$ADB" kill-server >> "$LOG" 2>&1
+    "$ADB" start-server >> "$LOG" 2>&1
+    CONN_OUT="$("$ADB" connect "$FIRE_IP:5555" 2>&1)"
+    log "Direct ADB connect: $CONN_OUT"
+    DEV_OUT="$("$ADB" devices 2>&1)"
+    log "Direct ADB devices: $DEV_OUT"
+    
+    osascript -e 'display dialog "ADB connection request sent to the TV!\n\nLook at the TV screen now.\n\nChoose \"Always allow from this computer\" and then click Allow.\n\nAfter allowing it, you can proceed to the next step." buttons {"OK"} default button "OK" with title "DexCast"'
     ;;
 
   sunshine)
