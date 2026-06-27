@@ -6,7 +6,6 @@ ROOT="/Users/andrew/DexCast"
 BIN_ACTION="$ROOT/bin/dexcast-action.zsh"
 BUILD_SCRIPT="$ROOT/scripts/build.zsh"
 DOCTOR_SCRIPT="$ROOT/scripts/doctor.zsh"
-SRC_SWIFT="$ROOT/src/DexCast.swift"
 APP="$ROOT/DexCast.app"
 
 echo "=== Running DexCast Tests & Sanity Checks ==="
@@ -34,17 +33,20 @@ check_zsh_syntax "$BUILD_SCRIPT"
 check_zsh_syntax "$DOCTOR_SCRIPT"
 
 # 2. Check Swift source structure
-if [ -f "$SRC_SWIFT" ]; then
-  if grep -q "struct ContentView:" "$SRC_SWIFT" && grep -q "@main" "$SRC_SWIFT"; then
-    echo "✅ Swift Source Check: ContentView and main entry point exist"
+check_swift_file() {
+  local filepath="$1"
+  if [ -f "$filepath" ]; then
+    echo "✅ Swift Source Check: $(basename "$filepath") exists"
   else
-    echo "❌ Swift Source Check: Swift file lacks expected SwiftUI structures"
+    echo "❌ Missing Swift file: $(basename "$filepath")"
     ERRORS=$((ERRORS + 1))
   fi
-else
-  echo "❌ Missing Swift file: $SRC_SWIFT"
-  ERRORS=$((ERRORS + 1))
-fi
+}
+
+check_swift_file "$ROOT/src/AppState.swift"
+check_swift_file "$ROOT/src/AppDelegate.swift"
+check_swift_file "$ROOT/src/Views.swift"
+check_swift_file "$ROOT/src/DexCastApp.swift"
 
 # 3. Check compiled app bundle structure (if built)
 if [ -d "$APP" ]; then

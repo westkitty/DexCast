@@ -3,7 +3,6 @@
 set -euo pipefail
 
 ROOT="/Users/andrew/DexCast"
-SRC="$ROOT/src/DexCast.swift"
 APP="$ROOT/DexCast.app"
 MACOS="$APP/Contents/MacOS"
 RES="$APP/Contents/Resources"
@@ -20,7 +19,7 @@ echo "Compiling Objective-C display helper..."
 clang -c -framework Foundation -framework CoreGraphics "$ROOT/src/dexcast-virtual-display.m" -o "$ROOT/src/dexcast-virtual-display.o"
 
 echo "Compiling Swift source..."
-xcrun swiftc -parse-as-library "$SRC" "$ROOT/src/dexcast-virtual-display.o" -o "$MACOS/DexCast" -framework SwiftUI -framework AppKit -framework IOKit -framework Carbon
+xcrun swiftc -parse-as-library "$ROOT"/src/*.swift "$ROOT/src/dexcast-virtual-display.o" -o "$MACOS/DexCast" -framework SwiftUI -framework AppKit -framework IOKit -framework Carbon
 
 # 3. Copy Asset resources
 echo "Copying asset resources..."
