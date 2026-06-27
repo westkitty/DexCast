@@ -173,8 +173,10 @@ echo 'Setting up Sunshine background service...';
       # Try starting service or run binary directly
       "$BREW" services start lizardbyte/homebrew/sunshine >> "$LOG" 2>&1 || "$SUNSHINE" >> "$LOG" 2>&1 &
       log "Sunshine service started"
+      osascript -e 'display dialog "Sunshine has been started in the background!" buttons {"OK"} default button "OK" with title "DexCast"'
     else
       log "Sunshine is already running"
+      osascript -e 'display dialog "Sunshine is already running in the background!" buttons {"OK"} default button "OK" with title "DexCast"'
     fi
     ;;
 
@@ -305,7 +307,7 @@ echo 'Setting up Sunshine background service...';
       [ -f "$SUNSHINE" ] && echo "Sunshine binary exists" || echo "Sunshine binary not found"
       echo "----------------------------------------------"
       echo "Running processes:"
-      pgrep -fl Sunshine || echo "Sunshine process is NOT running"
+      pgrep -fl sunshine || echo "Sunshine process is NOT running"
       pgrep -fl scrcpy || echo "scrcpy process is NOT running"
       echo "----------------------------------------------"
       echo "Network Reachability:"
