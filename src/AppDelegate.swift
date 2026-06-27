@@ -63,7 +63,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async {
                 AppState.shared.runAction("mac-fire")
             }
-            return noErr
+            return CallNextEventHandler(nextHandler, theEvent)
         }
         
         InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)

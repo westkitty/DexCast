@@ -191,6 +191,10 @@ class AppState: ObservableObject {
                             self.dexterState = "success"
                         } else {
                             self.dexterState = "failed"
+                            if let oldVal = self.savedBrightness {
+                                self.setBrightness(level: oldVal)
+                                self.savedBrightness = nil
+                            }
                         }
                     }
                 }
