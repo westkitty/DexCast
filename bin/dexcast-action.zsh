@@ -168,19 +168,32 @@ echo;
     fi
     log "Waking up Fire Stick at $FIRE_IP and launching Moonlight..."
     
-    # Try connecting
-    CONN_OUT="$("$ADB" connect "$FIRE_IP:5555" 2>&1)"
-    log "ADB connect: $CONN_OUT"
+    # Try connecting and wait for device to be online (up to 5 retries)
+    local retries=5
+    local DEV_STATE=""
+    while [ $retries -gt 0 ]; do
+      CONN_OUT="$("$ADB" connect "$FIRE_IP:5555" 2>&1)"
+      log "ADB connect retry $((6 - retries)): $CONN_OUT"
+      DEV_STATE="$("$ADB" devices | grep "$FIRE_IP:5555" | awk '{print $2}')"
+      if [ "$DEV_STATE" = "device" ] || [ "$DEV_STATE" = "unauthorized" ]; then
+        break
+      fi
+      log "Device is in state '$DEV_STATE', retrying in 1s..."
+      sleep 1
+      retries=$((retries - 1))
+    done
     
-    # Check authorization state
-    DEV_STATE="$("$ADB" devices | grep "$FIRE_IP:5555" | awk '{print $2}')"
     if [ "$DEV_STATE" = "unauthorized" ]; then
       log "ADB connection unauthorized. Displaying dialog."
       osascript -e 'display dialog "Fire Stick ADB connection is unauthorized.\n\nLook at the TV screen and choose \"Always allow from this computer\", then \"Allow\".\nThen try again." buttons {"OK"} with title "DexCast"'
       exit 1
+    elif [ "$DEV_STATE" = "offline" ]; then
+      log "Fire Stick is offline."
+      osascript -e 'display dialog "Fire Stick ADB connection is offline.\n\nTry toggling ADB Debugging OFF and then ON in Fire Stick Settings → My Fire TV → Developer Options.\nThen try again." buttons {"OK"} with title "DexCast"'
+      exit 1
     elif [ -z "$DEV_STATE" ]; then
       log "Fire Stick not connected. Testing ping."
-      if ! ping -c 1 "$FIRE_IP" >/dev/null 2>&1; then
+      if ! ping -c 1 -t 1 "$FIRE_IP" >/dev/null 2>&1; then
         osascript -e "display dialog \"I can't reach the Fire Stick at $FIRE_IP. Recheck Fire Stick Settings → Network.\" buttons {\"OK\"} with title \"DexCast\""
         exit 1
       fi
