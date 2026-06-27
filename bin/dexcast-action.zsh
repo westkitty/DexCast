@@ -115,7 +115,7 @@ case "${1:-}" in
     
     # 3. Moonlight Check
     if [ -n "$FIRE_IP" ] && [ "$DEV_STATE" = "device" ]; then
-      PKG="$("$ADB" shell pm list packages 2>/dev/null | grep -iE 'limelight|moonlight' | head -n 1 | sed 's/package://;s/\r//')"
+      PKG="$("$ADB" -s "$FIRE_IP:5555" shell pm list packages 2>/dev/null | grep -iE 'limelight|moonlight' | head -n 1 | sed 's/package://;s/\r//')"
       if [ -n "$PKG" ]; then
         echo "MOONLIGHT_PRESENT:ok"
       else
@@ -282,14 +282,14 @@ echo 'Setting up Sunshine background service...';
     fi
     
     # Wake up stick
-    "$ADB" shell input keyevent KEYCODE_WAKEUP >> "$LOG" 2>&1
-    "$ADB" shell input keyevent KEYCODE_HOME >> "$LOG" 2>&1
+    "$ADB" -s "$FIRE_IP:5555" shell input keyevent KEYCODE_WAKEUP >> "$LOG" 2>&1
+    "$ADB" -s "$FIRE_IP:5555" shell input keyevent KEYCODE_HOME >> "$LOG" 2>&1
     
     # Find Moonlight package
-    PKG="$("$ADB" shell pm list packages 2>>"$LOG" | grep -iE 'limelight|moonlight' | head -n 1 | sed 's/package://;s/\r//')"
+    PKG="$("$ADB" -s "$FIRE_IP:5555" shell pm list packages 2>>"$LOG" | grep -iE 'limelight|moonlight' | head -n 1 | sed 's/package://;s/\r//')"
     if [ -n "$PKG" ]; then
       log "Found Moonlight package: $PKG. Launching..."
-      "$ADB" shell monkey -p "$PKG" 1 >> "$LOG" 2>&1
+      "$ADB" -s "$FIRE_IP:5555" shell monkey -p "$PKG" 1 >> "$LOG" 2>&1
     else
       log "Moonlight is not installed on the Fire Stick."
       osascript -e 'display dialog "Moonlight was not found on the Fire Stick.\n\nOn the Fire Stick, search for \"Moonlight Game Streaming\" and install it first." buttons {"OK"} with title "DexCast"'
@@ -422,7 +422,7 @@ CFG
         "$ADB" connect "$FIRE_IP:5555" 2>&1
         "$ADB" devices | grep "$FIRE_IP:5555"
         echo "Moonlight Package Check:"
-        "$ADB" shell pm list packages | grep -iE 'limelight|moonlight' 2>&1
+        "$ADB" -s "$FIRE_IP:5555" shell pm list packages | grep -iE 'limelight|moonlight' 2>&1
       else
         echo "Fire Stick IP is not configured."
       fi
