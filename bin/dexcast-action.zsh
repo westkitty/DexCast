@@ -213,24 +213,32 @@ echo 'Setting up Sunshine background service...';
       "$BREW" services stop lizardbyte/homebrew/sunshine >/dev/null 2>&1 || true
       
       # Determine display override parameter
-      local disp_arg=""
+      local disp_id=""
       if [ "$DISPLAY_MODE" = "MacBook display" ] || [ "$DISPLAY_MODE" = "1" ]; then
-        disp_arg="display=1"
-        log "Overriding display output to: Built-in Display (ID 1)"
+        disp_id=""
+        log "Routing stream to default display (Desktop)"
       elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
-        disp_arg="display=2"
-        log "Overriding display output to: External Display (ID 2)"
+        disp_id="2"
+        log "Routing stream to External Display (ID 2)"
       elif [[ "$DISPLAY_MODE" =~ ^[0-9]+$ ]]; then
-        disp_arg="display=$DISPLAY_MODE"
-        log "Overriding display output to: Custom Display ID ($DISPLAY_MODE)"
+        disp_id="$DISPLAY_MODE"
+        log "Routing stream to Custom Display ID ($DISPLAY_MODE)"
       fi
       
-      # Start directly in user GUI session with display argument
-      if [ -n "$disp_arg" ]; then
-        "$SUNSHINE" "$disp_arg" >> "$LOG" 2>&1 &
-      else
-        "$SUNSHINE" >> "$LOG" 2>&1 &
+      # Update apps.json with selected display output index using jq
+      local apps_json="$HOME/.config/sunshine/apps.json"
+      if [ -f "$apps_json" ]; then
+        if [ -n "$disp_id" ]; then
+          log "Configuring Sunshine to capture output display ID: $disp_id"
+          /opt/homebrew/bin/jq ".apps |= map(if .name == \"Desktop\" then .output = $disp_id else . end)" "$apps_json" > "$apps_json.tmp" && mv "$apps_json.tmp" "$apps_json"
+        else
+          log "Resetting Sunshine to capture default primary display"
+          /opt/homebrew/bin/jq ".apps |= map(if .name == \"Desktop\" then del(.output) else . end)" "$apps_json" > "$apps_json.tmp" && mv "$apps_json.tmp" "$apps_json"
+        fi
       fi
+      
+      # Start directly in user GUI session
+      "$SUNSHINE" >> "$LOG" 2>&1 &
       log "Sunshine process started directly in user session"
       osascript -e 'display dialog "Sunshine has been started directly in your user session!" buttons {"OK"} default button "OK" with title "DexCast"'
     else
@@ -308,8 +316,15 @@ echo 'Setting up Sunshine background service...';
     log "Sit With Dexter: Android USB Mirror triggered"
     "$0" sunshine
     "$0" moonlight
-    log "Spawning scrcpy via USB..."
-    "$SCRCPY" --stay-awake --turn-screen-off >> "$LOG" 2>&1 &
+    local usb_serial
+    usb_serial="$("$ADB" devices | grep -v 'List of' | grep -v '5555' | grep 'device' | awk '{print $1}' | head -n 1)"
+    if [ -n "$usb_serial" ]; then
+      log "Spawning scrcpy via USB targeting serial $usb_serial..."
+      "$SCRCPY" -s "$usb_serial" --stay-awake --turn-screen-off >> "$LOG" 2>&1 &
+    else
+      log "Fallback: spawning scrcpy targeting USB device..."
+      "$SCRCPY" -d --stay-awake --turn-screen-off >> "$LOG" 2>&1 &
+    fi
     SCRCPY_PID=$!
     echo $SCRCPY_PID > "$PROFILES/scrcpy.pid"
     log "scrcpy spawned with PID $SCRCPY_PID"
@@ -326,8 +341,8 @@ echo 'Setting up Sunshine background service...';
     "$0" moonlight
     log "Connecting ADB to Android at $ANDROID_IP..."
     "$ADB" connect "$ANDROID_IP:5555" >> "$LOG" 2>&1
-    log "Spawning scrcpy via TCP/IP..."
-    "$SCRCPY" --tcpip="$ANDROID_IP:5555" --stay-awake >> "$LOG" 2>&1 &
+    log "Spawning scrcpy via TCP/IP targeting serial $ANDROID_IP:5555..."
+    "$SCRCPY" -s "$ANDROID_IP:5555" --stay-awake >> "$LOG" 2>&1 &
     SCRCPY_PID=$!
     echo $SCRCPY_PID > "$PROFILES/scrcpy.pid"
     log "scrcpy spawned with PID $SCRCPY_PID"
@@ -372,20 +387,28 @@ CFG
         pkill -f sunshine 2>/dev/null || true
         sleep 1
         
-        local disp_arg=""
+        local disp_id=""
         if [ "$DISPLAY_MODE" = "MacBook display" ] || [ "$DISPLAY_MODE" = "1" ]; then
-          disp_arg="display=1"
+          disp_id=""
         elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
-          disp_arg="display=2"
+          disp_id="2"
         elif [[ "$DISPLAY_MODE" =~ ^[0-9]+$ ]]; then
-          disp_arg="display=$DISPLAY_MODE"
+          disp_id="$DISPLAY_MODE"
         fi
         
-        if [ -n "$disp_arg" ]; then
-          "$SUNSHINE" "$disp_arg" >> "$LOG" 2>&1 &
-        else
-          "$SUNSHINE" >> "$LOG" 2>&1 &
+        # Update apps.json with selected display output index using jq
+        local apps_json="$HOME/.config/sunshine/apps.json"
+        if [ -f "$apps_json" ]; then
+          if [ -n "$disp_id" ]; then
+            log "Configuring Sunshine to capture output display ID: $disp_id"
+            /opt/homebrew/bin/jq ".apps |= map(if .name == \"Desktop\" then .output = $disp_id else . end)" "$apps_json" > "$apps_json.tmp" && mv "$apps_json.tmp" "$apps_json"
+          else
+            log "Resetting Sunshine to capture default primary display"
+            /opt/homebrew/bin/jq ".apps |= map(if .name == \"Desktop\" then del(.output) else . end)" "$apps_json" > "$apps_json.tmp" && mv "$apps_json.tmp" "$apps_json"
+          fi
         fi
+        
+        "$SUNSHINE" >> "$LOG" 2>&1 &
         log "Sunshine restarted with display '$DISPLAY_MODE'"
       fi
     fi
