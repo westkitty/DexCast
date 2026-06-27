@@ -31,6 +31,29 @@ load_profile(){
   fi
 }
 
+route_audio_start(){
+  if [ -f "/opt/homebrew/bin/SwitchAudioSource" ]; then
+    local cur_audio
+    cur_audio="$("/opt/homebrew/bin/SwitchAudioSource" -c)"
+    echo "$cur_audio" > "$PROFILES/audio.device"
+    log "Saved current audio output device: $cur_audio"
+    "/opt/homebrew/bin/SwitchAudioSource" -s "BlackHole 2ch" >> "$LOG" 2>&1 || true
+    log "Routed audio to BlackHole 2ch"
+  fi
+}
+
+route_audio_stop(){
+  if [ -f "/opt/homebrew/bin/SwitchAudioSource" ]; then
+    local old_audio
+    old_audio="$(cat "$PROFILES/audio.device" 2>/dev/null)"
+    if [ -n "$old_audio" ]; then
+      "/opt/homebrew/bin/SwitchAudioSource" -s "$old_audio" >> "$LOG" 2>&1 || true
+      log "Restored audio output device to: $old_audio"
+      rm -f "$PROFILES/audio.device"
+    fi
+  fi
+}
+
 terminal_run(){
   local title="$1"
   local cmd="$2"
@@ -112,7 +135,23 @@ case "${1:-}" in
       echo "SUNSHINE_RUNNING:missing"
     fi
     
-    # 5. Profile info
+    # 5. Active Stream check
+    if netstat -an | grep -E '\.(47998|48010) ' | grep -q 'ESTABLISHED'; then
+      echo "STREAM_ACTIVE:ok"
+    elif netstat -an | grep -E ':(47998|48010) ' | grep -q 'ESTABLISHED'; then
+      echo "STREAM_ACTIVE:ok"
+    else
+      echo "STREAM_ACTIVE:idle"
+    fi
+
+    # 6. Android USB Check
+    if "$ADB" devices | grep -v 'List of' | grep -v '5555' | grep -q 'device'; then
+      echo "ANDROID_USB:ok"
+    else
+      echo "ANDROID_USB:missing"
+    fi
+    
+    # 7. Profile info
     echo "PROFILE_NAME:${PROFILE:-default}"
     echo "FIRE_IP:${FIRE_IP:-Not set}"
     echo "ANDROID_IP:${ANDROID_IP:-Not set}"
@@ -168,12 +207,28 @@ echo 'Setting up Sunshine background service...';
     ;;
 
   sunshine)
+    load_profile
     log "Launching Sunshine stream server..."
     if ! pgrep -x sunshine >/dev/null; then
       # Disable brew launchd daemon to avoid screen capture blocks
       "$BREW" services stop lizardbyte/homebrew/sunshine >/dev/null 2>&1 || true
-      # Start directly in user GUI session
-      "$SUNSHINE" >> "$LOG" 2>&1 &
+      
+      # Determine display override parameter
+      local disp_arg=""
+      if [ "$DISPLAY_MODE" = "MacBook display" ] || [ "$DISPLAY_MODE" = "1" ]; then
+        disp_arg="display=1"
+        log "Overriding display output to: Built-in Display (ID 1)"
+      elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
+        disp_arg="display=2"
+        log "Overriding display output to: External Display (ID 2)"
+      fi
+      
+      # Start directly in user GUI session with display argument
+      if [ -n "$disp_arg" ]; then
+        "$SUNSHINE" "$disp_arg" >> "$LOG" 2>&1 &
+      else
+        "$SUNSHINE" >> "$LOG" 2>&1 &
+      fi
       log "Sunshine process started directly in user session"
       osascript -e 'display dialog "Sunshine has been started directly in your user session!" buttons {"OK"} default button "OK" with title "DexCast"'
     else
@@ -242,6 +297,7 @@ echo 'Setting up Sunshine background service...';
 
   mac-fire)
     log "Sit With Dexter: MacBook -> Fire Stick triggered"
+    route_audio_start
     "$0" sunshine
     "$0" moonlight
     ;;
@@ -290,9 +346,45 @@ echo 'Setting up Sunshine background service...';
 
   stop-sunshine)
     log "Stopping Sunshine stream server..."
+    route_audio_stop
     pkill -f sunshine 2>/dev/null || true
     "$BREW" services stop lizardbyte/homebrew/sunshine >/dev/null 2>&1 || true
     log "Sunshine stopped"
+    ;;
+
+  change-display)
+    load_profile
+    NEW_MODE="$2"
+    if [ -n "$NEW_MODE" ]; then
+      DISPLAY_MODE="$NEW_MODE"
+      # Save to active profile
+      cat > "$PROFILES/$PROFILE.env" <<CFG
+FIRE_IP="$FIRE_IP"
+ANDROID_IP="$ANDROID_IP"
+DISPLAY_MODE="$DISPLAY_MODE"
+CFG
+      log "Display mode changed to '$DISPLAY_MODE' in profile '$PROFILE'"
+      
+      # If Sunshine is currently running, restart it to apply changes!
+      if pgrep -x sunshine >/dev/null; then
+        pkill -f sunshine 2>/dev/null || true
+        sleep 1
+        
+        local disp_arg=""
+        if [ "$DISPLAY_MODE" = "MacBook display" ] || [ "$DISPLAY_MODE" = "1" ]; then
+          disp_arg="display=1"
+        elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
+          disp_arg="display=2"
+        fi
+        
+        if [ -n "$disp_arg" ]; then
+          "$SUNSHINE" "$disp_arg" >> "$LOG" 2>&1 &
+        else
+          "$SUNSHINE" >> "$LOG" 2>&1 &
+        fi
+        log "Sunshine restarted with display '$DISPLAY_MODE'"
+      fi
+    fi
     ;;
 
   doctor)

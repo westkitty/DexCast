@@ -1,11 +1,23 @@
 import SwiftUI
 import AppKit
+import IOKit
+import Carbon
+
+@_silgen_name("create_virtual_display")
+func create_virtual_display() -> UInt32
+
+@_silgen_name("destroy_virtual_display")
+func destroy_virtual_display()
 
 class AppState: ObservableObject {
+    static let shared = AppState()
+    
     @Published var fireReachable: String = "unknown"
     @Published var adbAuthorized: String = "unknown"
     @Published var moonlightPresent: String = "unknown"
     @Published var sunshineRunning: String = "unknown"
+    @Published var streamActive: String = "idle"
+    @Published var androidUSB: String = "missing"
     @Published var profileName: String = "default"
     @Published var fireIP: String = ""
     @Published var androidIP: String = ""
@@ -14,6 +26,7 @@ class AppState: ObservableObject {
     @Published var dexterState: String = "setup" // "idle", "setup", "connecting", "success", "failed"
     @Published var isChecking = false
     
+    private var savedBrightness: Float? = nil
     private let actionPath = "/Users/andrew/DexCast/bin/dexcast-action.zsh"
     
     init() {
@@ -21,6 +34,39 @@ class AppState: ObservableObject {
         // Poll status every 4 seconds in the background
         Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
             self.refresh()
+        }
+    }
+    
+    private func getBrightness() -> Float? {
+        var brightness: Float = 1.0
+        var iterator: io_iterator_t = 0
+        let result = IOServiceGetMatchingServices(0, IOServiceMatching("IODisplayConnect"), &iterator)
+        if result == 0 { // KERN_SUCCESS
+            var service = IOIteratorNext(iterator)
+            while service != 0 {
+                var val: Float = 0.0
+                if IODisplayGetFloatParameter(service, 0, "brightness" as CFString, &val) == 0 {
+                    brightness = val
+                    IOObjectRelease(service)
+                    break
+                }
+                IOObjectRelease(service)
+                service = IOIteratorNext(iterator)
+            }
+        }
+        return brightness
+    }
+
+    private func setBrightness(level: Float) {
+        var iterator: io_iterator_t = 0
+        let result = IOServiceGetMatchingServices(0, IOServiceMatching("IODisplayConnect"), &iterator)
+        if result == 0 { // KERN_SUCCESS
+            var service = IOIteratorNext(iterator)
+            while service != 0 {
+                IODisplaySetFloatParameter(service, 0, "brightness" as CFString, level)
+                IOObjectRelease(service)
+                service = IOIteratorNext(iterator)
+            }
         }
     }
     
@@ -70,6 +116,8 @@ class AppState: ObservableObject {
             case "ADB_AUTHORIZED": self.adbAuthorized = val
             case "MOONLIGHT_PRESENT": self.moonlightPresent = val
             case "SUNSHINE_RUNNING": self.sunshineRunning = val
+            case "STREAM_ACTIVE": self.streamActive = val
+            case "ANDROID_USB": self.androidUSB = val
             case "PROFILE_NAME": self.profileName = val
             case "FIRE_IP": self.fireIP = val
             case "ANDROID_IP": self.androidIP = val
@@ -88,6 +136,10 @@ class AppState: ObservableObject {
             dexterState = "failed"
             return
         }
+        if streamActive == "ok" {
+            dexterState = "success"
+            return
+        }
         if fireReachable == "ok" && adbAuthorized == "ok" && moonlightPresent == "ok" && sunshineRunning == "ok" {
             dexterState = "idle"
         } else {
@@ -96,25 +148,45 @@ class AppState: ObservableObject {
     }
     
     func runAction(_ arg: String, wait: Bool = false) {
-        if arg == "mac-fire" || arg == "android-usb-fire" || arg == "android-wifi-fire" {
+        let parts = arg.components(separatedBy: " ")
+        runActionWithArgs(parts, wait: wait)
+    }
+    
+    func runActionWithArgs(_ args: [String], wait: Bool = false) {
+        let action = args.first ?? ""
+        if action == "mac-fire" || action == "android-usb-fire" || action == "android-wifi-fire" {
             self.dexterState = "connecting"
+            // Dim built-in display dynamically
+            self.savedBrightness = getBrightness()
+            setBrightness(level: 0.0)
+        }
+        
+        if action == "stop-sunshine" || action == "stop-mirrors" {
+            if self.virtualDisplayActive {
+                destroy_virtual_display()
+                self.virtualDisplayActive = false
+            }
+            if let oldVal = self.savedBrightness {
+                setBrightness(level: oldVal)
+                self.savedBrightness = nil
+            }
         }
         
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = [self.actionPath, arg]
+            process.arguments = [self.actionPath] + args
             do {
                 try process.run()
                 if wait { process.waitUntilExit() }
                 
-                if arg == "mac-fire" || arg == "android-usb-fire" || arg == "android-wifi-fire" {
+                if action == "mac-fire" || action == "android-usb-fire" || action == "android-wifi-fire" {
                     Thread.sleep(forTimeInterval: 6.0)
                 }
                 
                 DispatchQueue.main.async {
                     self.refresh()
-                    if arg == "mac-fire" || arg == "android-usb-fire" || arg == "android-wifi-fire" {
+                    if action == "mac-fire" || action == "android-usb-fire" || action == "android-wifi-fire" {
                         if self.fireReachable == "ok" && self.adbAuthorized == "ok" && self.sunshineRunning == "ok" {
                             self.dexterState = "success"
                         } else {
@@ -123,6 +195,26 @@ class AppState: ObservableObject {
                     }
                 }
             } catch {}
+        }
+    }
+    
+    @Published var virtualDisplayActive: Bool = false
+    
+    func changeDisplayMode(_ newMode: String) {
+        if newMode == "Virtual TV Screen" {
+            let displayID = create_virtual_display()
+            if displayID != 0 {
+                self.virtualDisplayActive = true
+                self.displayMode = newMode
+                runActionWithArgs(["change-display", "\(displayID)"])
+            }
+        } else {
+            if self.virtualDisplayActive {
+                destroy_virtual_display()
+                self.virtualDisplayActive = false
+            }
+            self.displayMode = newMode
+            runActionWithArgs(["change-display", newMode])
         }
     }
 }
@@ -332,6 +424,18 @@ struct SidebarView: View {
             }
             .buttonStyle(.plain)
             
+            Button(action: { selectedTab = 3 }) {
+                HStack {
+                    Image(systemName: "doc.plaintext")
+                    Text("Logs")
+                    Spacer()
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8).fill(selectedTab == 3 ? Color.white.opacity(0.08) : Color.clear))
+                .foregroundColor(selectedTab == 3 ? .white : .secondary)
+            }
+            .buttonStyle(.plain)
+            
             Divider()
                 .opacity(0.3)
                 .padding(.vertical, 4)
@@ -464,18 +568,26 @@ struct DashboardView: View {
                         .lineLimit(2)
                     
                     Button(action: {
-                        state.runAction("mac-fire")
+                        if state.dexterState == "success" {
+                            state.runAction("stop-sunshine")
+                        } else {
+                            state.runAction("mac-fire")
+                        }
                     }) {
                         HStack {
-                            Image(systemName: "pawprint.fill")
-                            Text("Sit With Dexter")
+                            Image(systemName: state.dexterState == "success" ? "play.display" : "pawprint.fill")
+                            Text(state.dexterState == "success" ? "Casting Active! Click to Stop" : "Sit With Dexter")
                         }
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.vertical, 12)
                         .padding(.horizontal, 24)
-                        .background(RoundedRectangle(cornerRadius: 14).fill(state.dexterState == "failed" ? Color.red.opacity(0.8) : Color.orange))
-                        .shadow(color: (state.dexterState == "failed" ? Color.red : Color.orange).opacity(0.3), radius: 10, x: 0, y: 4)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(
+                            state.dexterState == "failed" ? Color.red.opacity(0.8) : (
+                                state.dexterState == "success" ? Color.green.opacity(0.8) : Color.orange
+                            )
+                        ))
+                        .shadow(color: (state.dexterState == "failed" ? Color.red : (state.dexterState == "success" ? Color.green : Color.orange)).opacity(0.3), radius: 10, x: 0, y: 4)
                     }
                     .buttonStyle(.plain)
                 }
@@ -484,6 +596,36 @@ struct DashboardView: View {
             .padding(20)
             .background(RoundedRectangle(cornerRadius: 20).fill(Color.white.opacity(0.03)))
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.06), lineWidth: 1))
+            
+            VStack(alignment: .leading, spacing: 10) {
+                Text("STREAM ROUTING PREFERENCE")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+                
+                HStack {
+                    Image(systemName: "display.2")
+                        .foregroundColor(.orange)
+                    Picker("Active Display:", selection: Binding(
+                        get: { state.displayMode },
+                        set: { newMode in
+                            state.changeDisplayMode(newMode)
+                        }
+                    )) {
+                        Text("Choose in Sunshine").tag("Choose in Sunshine")
+                        Text("MacBook display").tag("MacBook display")
+                        Text("External display").tag("External display")
+                        Text("Virtual TV Screen").tag("Virtual TV Screen")
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 250)
+                    
+                    Spacer()
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.03)))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.06), lineWidth: 1))
+            }
             
             VStack(alignment: .leading, spacing: 10) {
                 Text("SYSTEM CONNECTION GATES")
@@ -521,6 +663,11 @@ struct DashboardView: View {
                                value: state.displayMode.isEmpty ? "Sunshine" : state.displayMode,
                                icon: "display",
                                status: "ok")
+                    
+                    StatusCard(title: "Android USB",
+                               value: state.androidUSB == "ok" ? "Connected" : "Not Found",
+                               icon: "cable.connector",
+                               status: state.androidUSB == "ok" ? "ok" : "unknown")
                 }
             }
             
@@ -675,8 +822,57 @@ struct SetupWizardView: View {
     }
 }
 
+struct LogView: View {
+    @State private var logText: String = ""
+    let timer = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("System Logs")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+                Button(action: loadLogs) {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                Button(action: clearLogs) {
+                    Label("Clear Logs", systemImage: "trash")
+                }
+            }
+            
+            ScrollView {
+                Text(logText.isEmpty ? "No log entries found." : logText)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(8)
+            }
+        }
+        .padding()
+        .onAppear(perform: loadLogs)
+        .onReceive(timer) { _ in loadLogs() }
+    }
+    
+    func loadLogs() {
+        let logPath = "/Users/andrew/Library/Logs/dexcast.log"
+        if let content = try? String(contentsOfFile: logPath, encoding: .utf8) {
+            let lines = content.components(separatedBy: .newlines)
+            let lastLines = lines.suffix(150)
+            logText = lastLines.joined(separator: "\n")
+        }
+    }
+    
+    func clearLogs() {
+        let logPath = "/Users/andrew/Library/Logs/dexcast.log"
+        try? "".write(toFile: logPath, atomically: true, encoding: .utf8)
+        loadLogs()
+    }
+}
+
 struct ContentView: View {
-    @StateObject private var state = AppState()
+    @StateObject private var state = AppState.shared
     @State private var selectedTab = 1 // default to Dashboard
     @State private var wizardStep = 0
     
@@ -733,8 +929,10 @@ struct ContentView: View {
                 ScrollView {
                     if selectedTab == 1 {
                         DashboardView(state: state)
-                    } else {
+                    } else if selectedTab == 2 {
                         SetupWizardView(state: state, wizardStep: $wizardStep, wizardSteps: wizardSteps)
+                    } else if selectedTab == 3 {
+                        LogView()
                     }
                 }
             }
@@ -743,8 +941,83 @@ struct ContentView: View {
     }
 }
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var statusItem: NSStatusItem?
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem?.button {
+            button.image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "DexCast")
+        }
+        setupMenu()
+        setupGlobalHotkey()
+    }
+    
+    func setupMenu() {
+        let menu = NSMenu()
+        
+        menu.addItem(NSMenuItem(title: "🐾 Sit With Dexter", action: #selector(sitWithDexter), keyEquivalent: "d"))
+        menu.addItem(NSMenuItem(title: "🛑 Stop Sunshine", action: #selector(stopSunshine), keyEquivalent: "s"))
+        menu.addItem(NSMenuItem(title: "Stop Mirrors", action: #selector(stopMirrors), keyEquivalent: "m"))
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        menu.addItem(NSMenuItem(title: "Open DexCast Dashboard", action: #selector(openDashboard), keyEquivalent: "o"))
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
+        
+        statusItem?.menu = menu
+    }
+    
+    @objc func sitWithDexter() {
+        AppState.shared.runAction("mac-fire")
+    }
+    
+    @objc func stopSunshine() {
+        AppState.shared.runAction("stop-sunshine")
+    }
+    
+    @objc func stopMirrors() {
+        AppState.shared.runAction("stop-mirrors")
+    }
+    
+    @objc func openDashboard() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    @objc func quitApp() {
+        NSApp.terminate(nil)
+    }
+    
+    private func setupGlobalHotkey() {
+        var hotKeyRef: EventHotKeyRef?
+        let gMyHotKeyID = EventHotKeyID(signature: 0x44584353, id: 1) // "DXCS" signature in hex
+        
+        var eventType = EventTypeSpec()
+        eventType.eventClass = OSType(kEventClassKeyboard)
+        eventType.eventKind = UInt32(kEventHotKeyPressed)
+        
+        let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
+            DispatchQueue.main.async {
+                AppState.shared.runAction("mac-fire")
+            }
+            return noErr
+        }
+        
+        InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)
+        
+        // cmdKey = 0x0100, optionKey = 0x0800
+        let modifiers = 0x0100 | 0x0800
+        RegisterEventHotKey(2, UInt32(modifiers), gMyHotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+    }
+}
+
 @main
 struct DexCastApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
