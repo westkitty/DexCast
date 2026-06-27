@@ -11,6 +11,7 @@ ADB="$(command -v adb 2>/dev/null || echo /opt/homebrew/bin/adb)"
 SCRCPY="$(command -v scrcpy 2>/dev/null || echo /opt/homebrew/bin/scrcpy)"
 BREW="$(command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)"
 SUNSHINE="$(command -v sunshine 2>/dev/null || echo /opt/homebrew/bin/sunshine)"
+SWITCH_AUDIO="$(command -v SwitchAudioSource 2>/dev/null || echo /opt/homebrew/bin/SwitchAudioSource)"
 
 mkdir -p "$PROFILES" "$(dirname "$LOG")"
 touch "$LOG"
@@ -32,22 +33,22 @@ load_profile(){
 }
 
 route_audio_start(){
-  if [ -f "/opt/homebrew/bin/SwitchAudioSource" ]; then
+  if [ -x "$SWITCH_AUDIO" ]; then
     local cur_audio
-    cur_audio="$("/opt/homebrew/bin/SwitchAudioSource" -c)"
+    cur_audio="$("$SWITCH_AUDIO" -c)"
     echo "$cur_audio" > "$PROFILES/audio.device"
     log "Saved current audio output device: $cur_audio"
-    "/opt/homebrew/bin/SwitchAudioSource" -s "BlackHole 2ch" >> "$LOG" 2>&1 || true
+    "$SWITCH_AUDIO" -s "BlackHole 2ch" >> "$LOG" 2>&1 || true
     log "Routed audio to BlackHole 2ch"
   fi
 }
 
 route_audio_stop(){
-  if [ -f "/opt/homebrew/bin/SwitchAudioSource" ]; then
+  if [ -x "$SWITCH_AUDIO" ]; then
     local old_audio
     old_audio="$(cat "$PROFILES/audio.device" 2>/dev/null)"
     if [ -n "$old_audio" ]; then
-      "/opt/homebrew/bin/SwitchAudioSource" -s "$old_audio" >> "$LOG" 2>&1 || true
+      "$SWITCH_AUDIO" -s "$old_audio" >> "$LOG" 2>&1 || true
       log "Restored audio output device to: $old_audio"
       rm -f "$PROFILES/audio.device"
     fi
@@ -136,9 +137,7 @@ case "${1:-}" in
     fi
     
     # 5. Active Stream check
-    if netstat -an | grep -E '\.(47998|48010) ' | grep -q 'ESTABLISHED'; then
-      echo "STREAM_ACTIVE:ok"
-    elif netstat -an | grep -E ':(47998|48010) ' | grep -q 'ESTABLISHED'; then
+    if netstat -an | grep -E '[\.:](47998|47999|48010)\b' | grep -q 'ESTABLISHED'; then
       echo "STREAM_ACTIVE:ok"
     else
       echo "STREAM_ACTIVE:idle"
@@ -221,6 +220,9 @@ echo 'Setting up Sunshine background service...';
       elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
         disp_arg="display=2"
         log "Overriding display output to: External Display (ID 2)"
+      elif [[ "$DISPLAY_MODE" =~ ^[0-9]+$ ]]; then
+        disp_arg="display=$DISPLAY_MODE"
+        log "Overriding display output to: Custom Display ID ($DISPLAY_MODE)"
       fi
       
       # Start directly in user GUI session with display argument
@@ -375,6 +377,8 @@ CFG
           disp_arg="display=1"
         elif [ "$DISPLAY_MODE" = "External display" ] || [ "$DISPLAY_MODE" = "2" ]; then
           disp_arg="display=2"
+        elif [[ "$DISPLAY_MODE" =~ ^[0-9]+$ ]]; then
+          disp_arg="display=$DISPLAY_MODE"
         fi
         
         if [ -n "$disp_arg" ]; then
