@@ -288,6 +288,13 @@ echo 'Setting up Sunshine background service...';
     rm -f "$PROFILES/scrcpy.pid"
     ;;
 
+  stop-sunshine)
+    log "Stopping Sunshine stream server..."
+    pkill -f sunshine 2>/dev/null || true
+    "$BREW" services stop lizardbyte/homebrew/sunshine >/dev/null 2>&1 || true
+    log "Sunshine stopped"
+    ;;
+
   doctor)
     load_profile
     {

@@ -357,6 +357,10 @@ struct SidebarView: View {
                 state.runAction("stop-mirrors")
             }
             
+            MiniActionButton(title: "Stop Sunshine", icon: "xmark.octagon.fill", color: .red) {
+                state.runAction("stop-sunshine")
+            }
+            
             Spacer()
             
             Group {
