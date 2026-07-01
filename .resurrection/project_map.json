@@ -1,0 +1,44 @@
+{
+  "commands": [],
+  "duplicate_candidates": [
+    "sibling-near-duplicate: dex"
+  ],
+  "fragile_files": [
+    "DexCast.app/Contents/Info.plist",
+    "README.md",
+    "scripts/doctor.zsh"
+  ],
+  "git_state": {
+    "available": true,
+    "branch": "main",
+    "dirty": true,
+    "head": "7c94c4201f31d3bc2cf838b6eb8af27df2ad633e",
+    "head_subject": "Fix: Launch Sunshine via signed .app bundle so macOS correctly attributes Screen Recording permission.",
+    "is_repo": true,
+    "remote_url": "git@github.com:westkitty/DexCast.git",
+    "repo_root": "/Users/andrew/DexCast",
+    "staged_count": 0,
+    "tracked_modified_count": 0,
+    "untracked_count": 4
+  },
+  "identity": {
+    "name": "DexCast",
+    "path": "/Users/andrew/DexCast"
+  },
+  "project_type": {
+    "confidence": 0.2,
+    "evidence": [],
+    "purpose": "Purpose could not be inferred confidently from filesystem signals.",
+    "type": "unknown"
+  },
+  "recommended_next_actions": [
+    "Inspect the current uncommitted Git changes before making new edits.",
+    "Back up or review fragile configuration files before any risky changes.",
+    "Read the top-level README.md or AGENTS.md to establish project intent.",
+    "Read `.resurrection/project_report.md` and make one bounded change at a time.",
+    "Review the generated handoff before changing code."
+  ],
+  "scan_timestamp": "2026-06-27T20:52:34+00:00",
+  "scanner_version": "1.1.0",
+  "secret_risks": []
+}

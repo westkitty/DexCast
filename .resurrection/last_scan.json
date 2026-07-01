@@ -1,0 +1,57 @@
+{
+  "git_state": {
+    "available": true,
+    "branch": "main",
+    "dirty": true,
+    "head": "7c94c4201f31d3bc2cf838b6eb8af27df2ad633e",
+    "head_subject": "Fix: Launch Sunshine via signed .app bundle so macOS correctly attributes Screen Recording permission.",
+    "is_repo": true,
+    "remote_url": "git@github.com:westkitty/DexCast.git",
+    "repo_root": "/Users/andrew/DexCast",
+    "staged_count": 0,
+    "tracked_modified_count": 0,
+    "untracked_count": 4
+  },
+  "identity": {
+    "name": "DexCast",
+    "path": "/Users/andrew/DexCast"
+  },
+  "project_type": {
+    "confidence": 0.2,
+    "evidence": [],
+    "purpose": "Purpose could not be inferred confidently from filesystem signals.",
+    "type": "unknown"
+  },
+  "recommended_next_actions": [
+    "Inspect the current uncommitted Git changes before making new edits.",
+    "Back up or review fragile configuration files before any risky changes.",
+    "Read the top-level README.md or AGENTS.md to establish project intent.",
+    "Read `.resurrection/project_report.md` and make one bounded change at a time.",
+    "Review the generated handoff before changing code."
+  ],
+  "scan_timestamp": "2026-06-27T20:52:34+00:00",
+  "scanner_version": "1.1.0",
+  "signature": {
+    "git_dirty": {
+      "dirty": true,
+      "staged_count": 0,
+      "tracked_modified_count": 0,
+      "untracked_count": 4
+    },
+    "git_head": "7c94c4201f31d3bc2cf838b6eb8af27df2ad633e",
+    "project_type": "unknown",
+    "scanner_version": "1.1.0",
+    "watched_files": {
+      "README.md": {
+        "mtime_ns": 1782502444305806427,
+        "sha256": "fcd85b31e8cc5b90e6146f082c759e82f61c3ebd33f161d421dcd2773f37dccc",
+        "size": 3720
+      },
+      "scripts/doctor.zsh": {
+        "mtime_ns": 1782502270549647613,
+        "sha256": "97521c5da3aae4bcd217ef3eb3d17e39dd956055d4a43a08812f1e1a38d691a9",
+        "size": 599
+      }
+    }
+  }
+}

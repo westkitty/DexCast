@@ -1,0 +1,3 @@
+DexCast.app/Contents/Info.plist
+README.md
+scripts/doctor.zsh
